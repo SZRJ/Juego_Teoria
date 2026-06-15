@@ -50,6 +50,7 @@ int main(int argc, char* argv[]) {
     // Se asume que el arte esta dibujado mirando a la DERECHA.
     // Cambia a true si quieres que el personaje arranque mirando a la izquierda.
     bool facingLeft = true;
+    bool upsideDown = false;
     playerSprite->flipX = facingLeft;
     anim->play("idle");
 
@@ -94,10 +95,22 @@ int main(int argc, char* argv[]) {
         if (keys[SDL_SCANCODE_RIGHT]) moveX += 1.0f;
         if (keys[SDL_SCANCODE_UP])    moveY -= 1.0f;
         if (keys[SDL_SCANCODE_DOWN])  moveY += 1.0f;
+        if (keys[SDL_SCANCODE_SPACE]) {
+            if (upsideDown) {
+                upsideDown = false;
+                player->transform->y = 200.0f;
+                playerSprite->flipY = upsideDown;
+            }
+            else {
+                upsideDown = true;
+                player->transform->y = 0.0f;
+                playerSprite->flipY = upsideDown;
+            }
+        }
 
         // Mover al personaje
         player->transform->x += moveX * SPEED * dt;
-        player->transform->y += moveY * SPEED * dt;
+
 
         // Flip segun hacia donde camina (solo cambia si hay movimiento horizontal)
         if      (moveX < 0.0f) facingLeft = false;
