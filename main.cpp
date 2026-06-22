@@ -75,6 +75,19 @@ int main(int argc, char* argv[]) {
     const float SPEED = 200.0f; // velocidad del player en px/seg
     bool running = true;
     Uint64 lastTime = SDL_GetTicks();
+    float velocityY = 0.0f;
+    float Jump_Force = 400.f;   
+    float gravity = 1200.f;
+
+    //esto es solo para indicar que cambie de gravedad
+    float gravityInverted = false;
+
+    //Definicion del techo y el suelo (aunque no esten visibles de momento)
+    float suelo = 400.0f;
+    float techo = 50.f;
+
+    bool isGrounded = false;
+    bool isCeiled = false;
 
     while (running) {
         Uint64 now = SDL_GetTicks();
@@ -84,6 +97,12 @@ int main(int argc, char* argv[]) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
+            else if (event.type == SDL_EVENT_KEY_DOWN) {
+                if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
+                    
+                    gravityInverted = !gravityInverted;
+                }
+            }
         }
 
         // ---- Teclado: estado actual de todas las teclas (SDL3 => const bool*) ----
@@ -95,22 +114,74 @@ int main(int argc, char* argv[]) {
         if (keys[SDL_SCANCODE_RIGHT]) moveX += 1.0f;
         if (keys[SDL_SCANCODE_UP])    moveY -= 1.0f;
         if (keys[SDL_SCANCODE_DOWN])  moveY += 1.0f;
+
+        //uso de ia
+        if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]) {
+            gravity = -1200.0f; // Gravedad hacia arriba
+            playerSprite->flipY = true; // Voltear visualmente al personaje
+        }
+        else {
+            gravity = 1200.0f;  // Gravedad normal hacia abajo
+            playerSprite->flipY = false;
+        }
+
+        // ---- Aplicar el estado de la gravedad conservada ----
+        if (gravityInverted) {
+            gravity = -1200.0f;         // Gravedad hacia el techo
+            playerSprite->flipY = true; // Voltear personaje de cabeza
+        }
+        else {
+            gravity = 1200.0f;          // Gravedad hacia el suelo
+            playerSprite->flipY = false;
+        }
+
         if (keys[SDL_SCANCODE_SPACE]) {
-            if (upsideDown) {
-                upsideDown = false;
-                player->transform->y = 200.0f;
-                playerSprite->flipY = upsideDown;
+            if (gravity > 0.0f && isGrounded) {
+                velocityY = -Jump_Force; 
+                isGrounded = false;
             }
-            else {
-                upsideDown = true;
-                player->transform->y = 0.0f;
-                playerSprite->flipY = upsideDown;
+            else if (gravity < 0.0f && isCeiled) {
+                velocityY = Jump_Force;  
+                isCeiled = false;
             }
         }
 
         // Mover al personaje
         player->transform->x += moveX * SPEED * dt;
 
+        velocityY += gravity * dt;
+        player->transform->y += velocityY * dt;
+
+        //ia    
+
+        // ---- Aplicar Física y Movimiento ----
+
+        // 1. Mover horizontalmente
+        player->transform->x += moveX * SPEED * dt;
+
+        // 2. Aplicar gravedad a la velocidad vertical
+        velocityY += gravity * dt;
+        player->transform->y += velocityY * dt;
+
+        // 3. Colisión con el SUELO (Física invisible)
+        if (player->transform->y >= suelo) {
+            player->transform->y = suelo;
+            velocityY = 0.0f;
+            isGrounded = true;
+        }
+        else {
+            isGrounded = false;
+        }
+
+        // 4. Colisión con el TECHO (Física invisible)
+        if (player->transform->y <= techo) {
+            player->transform->y = techo;
+            velocityY = 0.0f;
+            isCeiled = true;
+        }
+        else {
+            isCeiled = false;
+        }
 
         // Flip segun hacia donde camina (solo cambia si hay movimiento horizontal)
         if      (moveX < 0.0f) facingLeft = false;
