@@ -47,18 +47,21 @@ public:
 
 
 
-        // "Coyote time": el grounded de la fisica parpadea porque el jugador queda
-        // justo en el borde del suelo y la penetracion por frame es sub-pixel; a
-        // framerate alto casi nunca se detecta el solape. Guardamos una ventana
-        // corta desde el ultimo contacto real para que el salto no dependa de
-        // acertar el frame exacto en que grounded vale true.
-        if (rb && rb->grounded) coyote = coyoteTime;
-        else if (coyote > 0.0f) coyote -= dt;
+        // 4. COYOTE TIME ADAPTADO (El truco para el techo)
+    // Si la física dice que está en el suelo OR (estamos de cabeza y pegados al techo)
+        bool isTouchingCeiling = (gravityDirection < 0.0f && rb && rb->velocityY <= 0.1f);
+
+        if (rb && (rb->grounded || isTouchingCeiling)) {
+            coyote = coyoteTime;
+        }
+        else if (coyote > 0.0f) {
+            coyote -= dt;
+        }
 
         bool jumpNow = keys[SDL_SCANCODE_SPACE];
         if (rb && jumpNow && !jumpPrev && coyote > 0.0f) {
-            rb->velocityY = -jump;
-            coyote = 0.0f; // consumir la ventana: evita doble salto en el mismo apoyo
+            rb->velocityY = -jump * gravityDirection;
+            coyote = 0.0f;
         }
         jumpPrev = jumpNow;
 
