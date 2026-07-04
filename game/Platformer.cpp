@@ -19,6 +19,7 @@
 class PlatformerController : public Component {
 public:
     float speed = 250.0f, jump = 650.0f;
+    float gravityDirection = 1.0f;
     void update(float dt) override {
         const bool* keys = SDL_GetKeyboardState(nullptr);
         auto rb     = gameObject->getComponent<RigidBody2D>();
@@ -29,6 +30,22 @@ public:
         if (keys[SDL_SCANCODE_LEFT])  moveX -= 1.0f;
         if (keys[SDL_SCANCODE_RIGHT]) moveX += 1.0f;
         if (rb) rb->velocityX = moveX * speed;
+
+        //cambio de gravedad
+        bool gravityKey = keys[SDL_SCANCODE_C];
+        if (gravityKey && !gravityPrev) {
+            gravityDirection *= -1.0f;
+            coyote = 0.0f;
+        }
+        gravityPrev = gravityKey;
+        // 3. COMPENSACIÓN DE FISICAS (Crucial)
+        // Si la gravedad está invertida, contrarrestamos la fuerza interna 
+        // del RigidBody2D aplicando un empuje constante hacia arriba de forma manual.
+        if (rb && gravityDirection < 0.0f) {
+            rb->velocityY -= 2000.0f * dt; // Ajusta este valor si sube muy lento o muy rápido
+        }
+
+
 
         // "Coyote time": el grounded de la fisica parpadea porque el jugador queda
         // justo en el borde del suelo y la penetracion por frame es sub-pixel; a
@@ -45,7 +62,7 @@ public:
         }
         jumpPrev = jumpNow;
 
-        if (sprite) { if (moveX < 0) sprite->flipX = true; else if (moveX > 0) sprite->flipX = false; }
+        if (sprite) { if (moveX < 0) sprite->flipX = true; else if (moveX > 0) sprite->flipX = false;sprite->flipY = (gravityDirection < 0.0f);}
 
         // Animacion segun el estado fisico. Evaluamos PRIMERO si esta en el suelo: si
         // lo esta, solo elegimos entre run/idle sin mirar velocityY (la gravedad lo
@@ -56,11 +73,12 @@ public:
         if (anim && rb) {
             bool onGround = coyote > 0.0f;
             if (onGround) anim->play(moveX != 0.0f ? "run" : "idle");
-            else          anim->play(rb->velocityY < 0.0f ? "jump" : "fall");
+            else { float relativeVerticalVelocity = rb->velocityY * gravityDirection; anim->play(rb->velocityY < 0.0f ? "jump" : "fall"); }
         }
     }
 private:
     bool  jumpPrev = false;
+    bool gravityPrev = false;
     float coyote = 0.0f;                         // tiempo restante de la ventana de salto
     static constexpr float coyoteTime = 0.1f;    // segundos de gracia tras el ultimo contacto
 };
