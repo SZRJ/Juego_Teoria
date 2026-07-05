@@ -19,12 +19,36 @@
 class PlatformerController : public Component {
 public:
     float speed = 250.0f, jump = 650.0f;
+    float dashSpeed = 2500.0f;
+    float dashDuration = 0.15f;
+    float dashCooldownTime = 0.6f;
     float gravityDirection = 1.0f;
     void update(float dt) override {
         const bool* keys = SDL_GetKeyboardState(nullptr);
         auto rb     = gameObject->getComponent<RigidBody2D>();
         auto sprite = gameObject->getComponent<SpriteRenderer>();
         auto anim   = gameObject->getComponent<SpriteAnimator>();
+
+        //Dash
+        if (dashCooldownTimer > 0.0f) {
+            dashCooldownTimer -= dt;
+        }
+
+        if (dashTimer > 0.0f) {
+            dashTimer -= dt;
+            if (rb) {
+                rb->velocityX = dashDirection * dashSpeed;
+                rb->velocityY = 0.0f;
+            }
+            if (anim) {
+                anim->play("run");
+            }
+
+
+            dashPrev = keys[SDL_SCANCODE_LSHIFT];
+            jumpPrev = keys[SDL_SCANCODE_X];
+            return;
+        }
 
         float moveX = 0.0f;
         if (keys[SDL_SCANCODE_LEFT])  moveX -= 1.0f;
@@ -38,6 +62,22 @@ public:
             coyote = 0.0f;
         }
         gravityPrev = gravityKey;
+
+        //dash
+        bool dashNow = keys[SDL_SCANCODE_Z];
+        if (dashNow && !dashPrev && dashCooldownTimer <= 0.0f) {
+            dashTimer = dashDuration;
+            dashCooldownTimer = dashCooldownTime;
+
+
+            if (moveX != 0.0f) {
+                dashDirection = moveX;
+            }
+            else {
+                dashDirection = (sprite && sprite->flipX) ? -1.0f : 1.0f;
+            }
+        }
+        dashPrev = dashNow;
         // 3. COMPENSACIÓN DE FISICAS (Crucial)
         // Si la gravedad está invertida, contrarrestamos la fuerza interna 
         // del RigidBody2D aplicando un empuje constante hacia arriba de forma manual.
@@ -45,8 +85,8 @@ public:
             rb->velocityY -= 2000.0f * dt; // Ajusta este valor si sube muy lento o muy rápido
         }
 
-
-
+        
+        
         // 4. COYOTE TIME ADAPTADO (El truco para el techo)
     // Si la física dice que está en el suelo OR (estamos de cabeza y pegados al techo)
         bool isTouchingCeiling = (gravityDirection < 0.0f && rb && rb->velocityY <= 0.1f);
@@ -58,7 +98,7 @@ public:
             coyote -= dt;
         }
 
-        bool jumpNow = keys[SDL_SCANCODE_SPACE];
+        bool jumpNow = keys[SDL_SCANCODE_X];
         if (rb && jumpNow && !jumpPrev && coyote > 0.0f) {
             rb->velocityY = -jump * gravityDirection;
             coyote = 0.0f;
@@ -81,6 +121,10 @@ public:
     }
 private:
     bool  jumpPrev = false;
+    bool dashPrev = false;
+    float dashTimer = 0.0f;
+    float dashCooldownTimer = 0.0f;
+    float dashDirection = 1.0f;
     bool gravityPrev = false;
     float coyote = 0.0f;                         // tiempo restante de la ventana de salto
     static constexpr float coyoteTime = 0.1f;    // segundos de gracia tras el ultimo contacto
@@ -94,7 +138,7 @@ void buildPlatformer(Scene& scene) {
     // horizontal de frames de 32x32), y el animator decide cual dibujar segun el estado.
     player->addComponent<SpriteRenderer>();
     auto anim = player->addComponent<SpriteAnimator>(32, 32, 1);
-    const std::string mask = "assets/pixel_adventure/Main Characters/Mask Dude/";
+    const std::string mask = "assets/pixel_adventure/Main Characters/Virtual Guy/";
     anim->addStripAnimation("idle", mask + "Idle (32x32).png", 32, 32, 20.0f);
     anim->addStripAnimation("run",  mask + "Run (32x32).png",  32, 32, 20.0f);
     anim->addStripAnimation("jump", mask + "Jump (32x32).png", 32, 32, 20.0f);

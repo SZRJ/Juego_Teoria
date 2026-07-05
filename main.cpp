@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
         SDL_Log("Error al inicializar SDL: %s", SDL_GetError());
         return 1;
     }
-    SDL_Window* window = SDL_CreateWindow("Ejemplo 1: Platformer  (1/2/3 cambia, F1 debug)", 1280, 720, 0);
+    SDL_Window* window = SDL_CreateWindow("GravityDash", 1280, 720, 0);
     if (!window) { SDL_Quit(); return 1; }
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     if (!renderer) { SDL_DestroyWindow(window); SDL_Quit(); return 1; }
@@ -40,15 +40,13 @@ int main(int argc, char* argv[]) {
 
                 int sel = 0;
                 if (event.key.scancode == SDL_SCANCODE_1) sel = 1;
-                if (event.key.scancode == SDL_SCANCODE_2) sel = 2;
-                if (event.key.scancode == SDL_SCANCODE_3) sel = 3;
+              
 
                 if (sel != 0 && sel != current) {
                     current = sel;
                     scene = std::make_unique<Scene>(renderer);
                     if (sel == 1) { buildPlatformer(*scene); SDL_SetWindowTitle(window, "Ejemplo 1: Platformer  (1/2/3 cambia, F1 debug)"); }
-                    if (sel == 2) { buildTopDown(*scene);    SDL_SetWindowTitle(window, "Ejemplo 2: Top-down  (1/2/3 cambia, F1 debug)"); }
-                    if (sel == 3) { buildShooter(*scene);    SDL_SetWindowTitle(window, "Ejemplo 3: Shooter  (1/2/3 cambia, F1 debug)"); }
+                
                 }
             }
         }
