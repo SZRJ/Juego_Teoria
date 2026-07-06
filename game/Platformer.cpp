@@ -23,13 +23,58 @@ public:
     float dashDuration = 0.15f;
     float dashCooldownTime = 0.6f;
     float gravityDirection = 1.0f;
-    void update(float dt) override {
-        const bool* keys = SDL_GetKeyboardState(nullptr);
-        auto rb     = gameObject->getComponent<RigidBody2D>();
-        auto sprite = gameObject->getComponent<SpriteRenderer>();
-        auto anim   = gameObject->getComponent<SpriteAnimator>();
 
-        //Dash
+    // Variables para registrar el punto de aparición (Respawn)
+    float startX = 0.0f;
+    float startY = 0.0f;
+    bool firstFrame = true;
+
+    float timeElapsed = 0.0f;
+    bool hasWon = false;
+
+    void update(float dt) override {
+        // En el primer frame guardamos la posición segura de inicio
+        if (firstFrame) {
+            startX = gameObject->transform->x;
+            startY = gameObject->transform->y;
+            firstFrame = false;
+        }
+        if (!hasWon) {
+            timeElapsed += dt;
+        }
+        
+     
+        int minutes = (int)(timeElapsed / 60.0f);
+        int seconds = (int)(timeElapsed) % 60;
+        int milliseconds = (int)((timeElapsed - std::floor(timeElapsed)) * 100.0f);
+
+        // Obtenemos el renderer de la escena para llegar a la ventana de SDL3
+        SDL_Renderer* renderer = gameObject->scene->getRenderer();
+        if (renderer) {
+            SDL_Window* window = SDL_GetRenderWindow(renderer);
+            if (window) {
+                char titleBuffer[128]; // Ampliamos el tamaño por si acaso
+
+                if (hasWon) {
+                    
+                    SDL_snprintf(titleBuffer, sizeof(titleBuffer), "GravityDash - GANASTE! - Tiempo Record: %02d:%02d:%02d", minutes, seconds, milliseconds);
+                }
+                else {
+                   
+                    SDL_snprintf(titleBuffer, sizeof(titleBuffer), "GravityDash - Tiempo: %02d:%02d:%02d", minutes, seconds, milliseconds);
+                }
+
+                SDL_SetWindowTitle(window, titleBuffer);
+            }
+        }
+
+
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+        auto rb = gameObject->getComponent<RigidBody2D>();
+        auto sprite = gameObject->getComponent<SpriteRenderer>();
+        auto anim = gameObject->getComponent<SpriteAnimator>();
+
+        // 1. DASH
         if (dashCooldownTimer > 0.0f) {
             dashCooldownTimer -= dt;
         }
@@ -44,34 +89,33 @@ public:
                 anim->play("run");
             }
 
-
             dashPrev = keys[SDL_SCANCODE_LSHIFT];
             jumpPrev = keys[SDL_SCANCODE_X];
             return;
         }
 
+        // 2. MOVIMIENTO
         float moveX = 0.0f;
         if (keys[SDL_SCANCODE_LEFT])  moveX -= 1.0f;
         if (keys[SDL_SCANCODE_RIGHT]) moveX += 1.0f;
         if (rb) rb->velocityX = moveX * speed;
 
-        //cambio de gravedad
+        // 3. CAMBIO DE GRAVEDAD SIMÉTRICO
         bool gravityKey = keys[SDL_SCANCODE_C];
         if (gravityKey && !gravityPrev) {
             gravityDirection *= -1.0f;
             if (rb) {
-                rb->gravityScale = gravityDirection; 
+                rb->gravityScale = gravityDirection;
             }
             coyote = 0.0f;
         }
         gravityPrev = gravityKey;
 
-        //dash
+        // 4. TRIGGER DASH
         bool dashNow = keys[SDL_SCANCODE_Z];
         if (dashNow && !dashPrev && dashCooldownTimer <= 0.0f) {
             dashTimer = dashDuration;
             dashCooldownTimer = dashCooldownTime;
-
 
             if (moveX != 0.0f) {
                 dashDirection = moveX;
@@ -81,21 +125,16 @@ public:
             }
         }
         dashPrev = dashNow;
-     
 
-        
-        
-        // 4. COYOTE TIME ADAPTADO (El truco para el techo)
-    // Si la física dice que está en el suelo OR (estamos de cabeza y pegados al techo)
-        bool isTouchingCeiling = (gravityDirection < 0.0f && rb && rb->velocityY <= 0.1f);
-
-        if (rb && (rb->grounded || isTouchingCeiling)) {
+        // 5. COYOTE TIME NATIVO
+        if (rb && rb->grounded) {
             coyote = coyoteTime;
         }
         else if (coyote > 0.0f) {
             coyote -= dt;
         }
 
+        // 6. SALTO
         bool jumpNow = keys[SDL_SCANCODE_X];
         if (rb && jumpNow && !jumpPrev && coyote > 0.0f) {
             rb->velocityY = -jump * gravityDirection;
@@ -103,20 +142,86 @@ public:
         }
         jumpPrev = jumpNow;
 
-        if (sprite) { if (moveX < 0) sprite->flipX = true; else if (moveX > 0) sprite->flipX = false;sprite->flipY = (gravityDirection < 0.0f);}
+        // 7. VISUALES (FLIP)
+        if (sprite) {
+            if (moveX < 0) sprite->flipX = true;
+            else if (moveX > 0) sprite->flipX = false;
+            sprite->flipY = (gravityDirection < 0.0f);
+        }
 
-        // Animacion segun el estado fisico. Evaluamos PRIMERO si esta en el suelo: si
-        // lo esta, solo elegimos entre run/idle sin mirar velocityY (la gravedad lo
-        // deja ligeramente positivo cada frame y dispararia "fall" por error). Usamos
-        // el "coyote" como suelo SUAVIZADO: el grounded crudo de la fisica parpadea
-        // sub-pixel cada pocos frames, y como play() reinicia la animacion al cambiar
-        // de nombre, ese parpadeo entrecortaba "run". El coyote ignora ese parpadeo.
+        // 8. ANIMACIONES
         if (anim && rb) {
             bool onGround = coyote > 0.0f;
-            if (onGround) anim->play(moveX != 0.0f ? "run" : "idle");
-            else { float relativeVerticalVelocity = rb->velocityY * gravityDirection; anim->play(rb->velocityY < 0.0f ? "jump" : "fall"); }
+            if (onGround) {
+                anim->play(moveX != 0.0f ? "run" : "idle");
+            }
+            else {
+                float relativeVerticalVelocity = rb->velocityY * gravityDirection;
+                anim->play(relativeVerticalVelocity < 0.0f ? "jump" : "fall");
+            }
         }
     }
+
+    // 9. GATILLO DE EVENTO AUTOMÁTICO (Invocado por el notifyCollision de tu GameObject)
+    void onCollision(GameObject* other) override {
+        // Si chocamos con una entidad nombrada "Hazard" por el TilemapRenderer... morimos
+        if (other && other->name == "Hazard") {
+            reiniciarNivel();
+        }
+        //dash por bloque dorado
+        if (other && other->name == "Dash") {
+            auto sprite = gameObject->getComponent<SpriteRenderer>();
+
+            
+            float direccionImpulso = (sprite && sprite->flipX) ? -1.0f : 1.0f;
+
+            
+            impulsarPorBloque(direccionImpulso, dashSpeed);
+        }
+        if (other && other->name == "Winner") {
+            if (!hasWon) {
+                SDL_Log("¡Nivel Completado! Has tocado el bloque Winner.");
+                hasWon = true; // Activa el freno de tiempo y cambia el título
+            }
+            
+        }
+    }
+    void impulsarPorBloque(float direccionX, float velocidadPersonalizada = 2500.0f) {
+        auto rb = gameObject->getComponent<RigidBody2D>();
+
+        dashTimer = dashDuration;
+        dashCooldownTimer = dashCooldownTime;
+        dashDirection = direccionX;
+
+        if (rb) {
+            rb->velocityX = dashDirection * velocidadPersonalizada;
+            rb->velocityY = 0.0f; 
+        }
+    }
+    void reiniciarNivel() {
+        auto rb = gameObject->getComponent<RigidBody2D>();
+        
+
+        // Regresar al checkpoint seguro
+        gameObject->transform->x = startX;
+        gameObject->transform->y = startY;
+
+        // Drenar velocidades remanentes
+        if (rb) {
+            rb->velocityX = 0.0f;
+            rb->velocityY = 0.0f;
+
+            // Reestablecer gravedad por defecto al reaparecer
+            gravityDirection = 1.0f;
+            rb->gravityScale = 1.0f;
+        }
+
+        coyote = 0.0f;
+        dashTimer = 0.0f;
+        dashCooldownTimer = 0.0f;
+        timeElapsed = 0.0f;
+    }
+
 private:
     bool  jumpPrev = false;
     bool dashPrev = false;
@@ -124,8 +229,8 @@ private:
     float dashCooldownTimer = 0.0f;
     float dashDirection = 1.0f;
     bool gravityPrev = false;
-    float coyote = 0.0f;                         // tiempo restante de la ventana de salto
-    static constexpr float coyoteTime = 0.1f;    // segundos de gracia tras el ultimo contacto
+    float coyote = 0.0f;
+    static constexpr float coyoteTime = 0.1f;
 };
 
 void buildPlatformer(Scene& scene) {

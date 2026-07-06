@@ -294,24 +294,44 @@ bool TilemapRenderer::loadFromTiledJson(const std::string& filePath) {
 
 void TilemapRenderer::buildColliders() {
     Transform* t = gameObject->transform;
-    float worldTileW = tileW * t->scaleX; // tamano de la celda en el mundo
+    float worldTileW = tileW * t->scaleX;
     float worldTileH = tileH * t->scaleY;
 
     for (int row = 0; row < mapHeight; ++row) {
         for (int col = 0; col < mapWidth; ++col) {
             int idx = tiles[row * mapWidth + col];
-            if (idx < 0) continue;        // vacia
-            if (!isSolid(idx)) continue;  // no marcada como solida
+            if (idx < 0) continue;
+            if (!isSolid(idx)) continue;
 
-            // Un GameObject estatico (sin RigidBody) por celda solida, con el
-            // BoxCollider centrado en el centro de la celda (el collider se ancla
-            // al CENTRO del Transform).
-            GameObject* tileObj = gameObject->scene->createGameObject("TilemapCollider");
+            int currentGid = idx + 1;
+
+            std::string objName = "TilemapCollider";
+            bool trg = false; 
+
+            // Si es un pincho o trampa dañina
+            if (currentGid == 260 || currentGid == 118) {
+                objName = "Hazard";
+                trg = true; 
+            }
+
+            if (currentGid == 194 || currentGid == 216 || currentGid == 217 || currentGid == 238 || currentGid == 239) {
+                objName = "Dash";
+                trg = true;
+            }
+
+            if (currentGid == 176 || currentGid == 177 || currentGid == 178 || currentGid == 198 || currentGid == 200 || currentGid == 220 || currentGid == 221 || currentGid == 222) {
+                objName = "Winner";
+                trg = true;
+            }
+
+            GameObject* tileObj = gameObject->scene->createGameObject(objName);
             tileObj->transform->x = t->x + col * worldTileW + worldTileW * 0.5f;
             tileObj->transform->y = t->y + row * worldTileH + worldTileH * 0.5f;
+
             auto bc = tileObj->addComponent<BoxCollider>();
             bc->width = worldTileW;
             bc->height = worldTileH;
+            bc->isTrigger = trg; 
         }
     }
 }
