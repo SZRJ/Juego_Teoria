@@ -297,41 +297,76 @@ void TilemapRenderer::buildColliders() {
     float worldTileW = tileW * t->scaleX;
     float worldTileH = tileH * t->scaleY;
 
+    // Usaremos una matriz de visitados para no duplicar bloques procesados en las filas
+    std::vector<bool> visited(mapWidth * mapHeight, false);
+
     for (int row = 0; row < mapHeight; ++row) {
         for (int col = 0; col < mapWidth; ++col) {
-            int idx = tiles[row * mapWidth + col];
-            if (idx < 0) continue;
-            if (!isSolid(idx)) continue;
+            int idx = row * mapWidth + col;
+            int tileIdx = tiles[idx];
 
-            int currentGid = idx + 1;
+            // Si es vacío, no es sólido o ya lo procesamos en una fusión horizontal, lo saltamos
+            if (tileIdx < 0 || !isSolid(tileIdx) || visited[idx]) continue;
 
+            int currentGid = tileIdx + 1;
             std::string objName = "TilemapCollider";
-            bool trg = false; 
+            bool trg = false;
 
-            // Si es un pincho o trampa dañina
+            // Determinar tipo de bloque
             if (currentGid == 260 || currentGid == 118) {
                 objName = "Hazard";
-                trg = true; 
+                trg = true;
             }
-
-            if (currentGid == 194 || currentGid == 216 || currentGid == 217 || currentGid == 238 || currentGid == 239) {
+            else if (currentGid == 194 || currentGid == 216 || currentGid == 217 || currentGid == 238 || currentGid == 239) {
                 objName = "Dash";
                 trg = true;
             }
-
-            if (currentGid == 176 || currentGid == 177 || currentGid == 178 || currentGid == 198 || currentGid == 200 || currentGid == 220 || currentGid == 221 || currentGid == 222) {
+            else if (currentGid == 176 || currentGid == 177 || currentGid == 178 || currentGid == 198 || currentGid == 200 || currentGid == 220 || currentGid == 221 || currentGid == 222) {
                 objName = "Winner";
                 trg = true;
             }
 
+            // ??? ALGORITMO DE FUSIÓN HORIZONTAL ???
+            // Miramos cuántos bloques IGUALES y del mismo tipo hay de corrido a la derecha
+            int runLength = 1;
+            while ((col + runLength) < mapWidth) {
+                int nextIdx = row * mapWidth + (col + runLength);
+                int nextTileIdx = tiles[nextIdx];
+
+                if (nextTileIdx < 0 || !isSolid(nextTileIdx) || visited[nextIdx]) break;
+
+                // Verificamos que el bloque vecino sea exactamente del mismo tipo
+                int nextGid = nextTileIdx + 1;
+                std::string nextObjName = "TilemapCollider";
+                if (nextGid == 260 || nextGid == 118) nextObjName = "Hazard";
+                else if (nextGid == 194 || nextGid == 216 || nextGid == 217 || nextGid == 238 || nextGid == 239) nextObjName = "Dash";
+                else if (nextGid == 176 || nextGid == 177 || nextGid == 178 || nextGid == 198 || nextGid == 200 || nextGid == 220 || nextGid == 221 || nextGid == 222) nextObjName = "Winner";
+
+                if (nextObjName != objName) break; // Si cambia el tipo (ej: de Suelo a Pincho), rompemos la fusión
+
+                // Si pasó los filtros, lo unimos
+                visited[nextIdx] = true;
+                runLength++;
+            }
+            visited[idx] = true;
+
+            // Calcular el tamaño estirado y el centro geométrico de la nueva caja unificada
+            float totalWidth = worldTileW * runLength;
+            float centerX = t->x + col * worldTileW + (totalWidth * 0.5f);
+            float centerY = t->y + row * worldTileH + (worldTileH * 0.5f);
+
+            // Instanciar UN SOLO GameObject para toda la hilera
             GameObject* tileObj = gameObject->scene->createGameObject(objName);
-            tileObj->transform->x = t->x + col * worldTileW + worldTileW * 0.5f;
-            tileObj->transform->y = t->y + row * worldTileH + worldTileH * 0.5f;
+            tileObj->transform->x = centerX;
+            tileObj->transform->y = centerY;
 
             auto bc = tileObj->addComponent<BoxCollider>();
-            bc->width = worldTileW;
+            bc->width = totalWidth; // Caja estirada horizontalmente
             bc->height = worldTileH;
-            bc->isTrigger = trg; 
+            bc->isTrigger = trg;
+
+            // Avanzar el iterador del bucle para no recalcular las celdas fusionadas
+            col += (runLength - 1);
         }
     }
 }

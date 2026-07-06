@@ -42,7 +42,7 @@ public:
         if (!hasWon) {
             timeElapsed += dt;
         }
-        
+       
      
         int minutes = (int)(timeElapsed / 60.0f);
         int seconds = (int)(timeElapsed) % 60;
