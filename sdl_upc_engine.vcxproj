@@ -32,6 +32,7 @@
     <ClCompile Include="game\Shooter.cpp" />
     <ClCompile Include="game\TopDown.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="SoundManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engine\AssetManager.h" />
@@ -51,6 +52,7 @@
     <ClInclude Include="game\Platformer.h" />
     <ClInclude Include="game\Shooter.h" />
     <ClInclude Include="game\TopDown.h" />
+    <ClInclude Include="SoundManager.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -136,18 +138,19 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\SDL3\include; C:\SDL3_image\include; $(ProjectDir)engine\third_party</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\SDL3_mixer\include;C:\SDL3\include;C:\SDL3_image\include;$(ProjectDir)engine\third_party</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\SDL3\lib\x64;C:\SDL3_image\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL3.lib;SDL3_image.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\SDL3_mixer\lib\x64;C:\SDL3\lib\x64;C:\SDL3_image\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL3.lib;SDL3_image.lib;SDL3_mixer.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y "D:\SDL3\lib\x64\SDL3.dll" "$(OutDir)"
-xcopy /y "D:\SDL3_image\lib\x64\SDL3_image.dll" "$(OutDir)"
+      <Command>xcopy /y "C:\SDL3\lib\x64\SDL3.dll" "$(OutDir)"
+xcopy /y "C:\SDL3_image\lib\x64\SDL3_image.dll" "$(OutDir)"
+xcopy /y "C:\SDL3_mixer\lib\x64\SDL3_mixer.dll" "$(OutDir)"
 xcopy /Y /E /I "$(ProjectDir)assets" "$(OutDir)assets"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
