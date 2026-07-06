@@ -59,6 +59,9 @@ public:
         bool gravityKey = keys[SDL_SCANCODE_C];
         if (gravityKey && !gravityPrev) {
             gravityDirection *= -1.0f;
+            if (rb) {
+                rb->gravityScale = gravityDirection; 
+            }
             coyote = 0.0f;
         }
         gravityPrev = gravityKey;
@@ -78,12 +81,7 @@ public:
             }
         }
         dashPrev = dashNow;
-        // 3. COMPENSACIÓN DE FISICAS (Crucial)
-        // Si la gravedad está invertida, contrarrestamos la fuerza interna 
-        // del RigidBody2D aplicando un empuje constante hacia arriba de forma manual.
-        if (rb && gravityDirection < 0.0f) {
-            rb->velocityY -= 2000.0f * dt; // Ajusta este valor si sube muy lento o muy rápido
-        }
+     
 
         
         
@@ -132,7 +130,7 @@ private:
 
 void buildPlatformer(Scene& scene) {
     GameObject* player = scene.createGameObject("Player");
-    player->transform->y = -150.0f;
+    player->transform->y = 100.0f;
     player->transform->scaleX = player->transform->scaleY = 4.0f;
     // Sin textura inicial: cada animacion del Mask Dude es un .png aparte (una tira
     // horizontal de frames de 32x32), y el animator decide cual dibujar segun el estado.
